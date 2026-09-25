@@ -32,6 +32,7 @@ let serverOffset = 0;          // reloj de Firebase − reloj de este equipo
 let renderedKey = null;        // qué está dibujado (para no redibujar sin motivo)
 let cleanups = [];             // timers y listeners del modo actual
 let liveUpdater = null;        // actualiza la lista de sobres sin redibujar
+let socialUpdater = null;      // actualiza los "Me gusta" del cierre sin redibujar
 let revealPlayed = false;      // la cortina de la ganadora corre una sola vez
 let lastState = null;          // último /publico recibido
 const votingClosed = st => !!st.votingEnd && (Date.now() + serverOffset) >= st.votingEnd;
@@ -53,6 +54,7 @@ function resetMode() {
   cleanups.forEach(fn => fn());
   cleanups = [];
   liveUpdater = null;
+  socialUpdater = null;
   reactionsLayer.innerHTML = '';
   document.querySelectorAll('.curtain, .countdown, .confetti, .handover').forEach(e => e.remove());
 }
@@ -283,8 +285,74 @@ function initVoteClock(state) {
   if (!tick()) { const t = every(() => { if (tick()) clearInterval(t); }, 1000); }
 }
 
+// ------------------------------------------------------------------ cierre de Facebook (20:45 → 21:00)
+function renderSocialClose(state) {
+  const cands = list(state.candidates);
+  const cut = hhmm(state.votingEnd);
+  main.innerHTML = `
+    <section class="roster social-close">
+      <div class="roster-head">
+        <h2 class="display section-title">Así cerró la votación por Facebook</h2>
+        <span class="tag">🔒 Corte: ${esc(cut)}</span>
+      </div>
+      <div class="vote-band closed" id="vote-band">
+        <div class="vb-label">
+          <div class="eyebrow" id="vb-kicker">🔒 Votación por Facebook cerrada</div>
+          <div class="vb-title" id="vb-title">1.er llamado</div>
+        </div>
+        <div class="vb-clock">
+          <div class="seg"><b id="vb-h">--</b><span>horas</span></div><i>:</i>
+          <div class="seg"><b id="vb-m">--</b><span>minutos</span></div><i>:</i>
+          <div class="seg"><b id="vb-s">--</b><span>segundos</span></div>
+        </div>
+        <div class="vb-hint" id="vb-hint">“Me gusta” de cada publicación oficial de Facebook al corte de las ${esc(cut)}</div>
+      </div>
+      <div class="candidatas fit" data-ratio="0.75">
+        ${cands.map((c, i) => `
+          <article class="candidata sc-card pending" data-id="${esc(c.id)}" style="--d:${i * 70}ms">
+            <img src="${esc(photo(c.photo))}" alt="Foto ${esc(c.name)}" ${onErr}>
+            <div class="info">
+              <div class="sc-likes"><span class="thumb">👍</span><b class="num" data-value="">…</b></div>
+              <div class="sc-at">registrando…</div>
+              <div class="name">${esc(c.name)}</div>
+              <div class="program">${esc(c.program)}</div>
+            </div>
+          </article>`).join('')}
+      </div>
+      <p class="roster-foot">Cuentan solo los “Me gusta” (👍) de su publicación en la página oficial del instituto, tal como estaban a las ${esc(cut)}.</p>
+    </section>`;
+  fitAll();
+  initVoteClock(state);
+
+  const countTo = (el, to) => {
+    const from = Number(el.dataset.value || 0), start = performance.now(), dur = 1200;
+    el.dataset.value = to;
+    const step = t => { const k = Math.min(1, (t - start) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = intFmt(Math.round(from + (to - from) * e)); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  };
+  let first = true;
+  socialUpdater = st => {
+    list(st.socialClose).forEach(it => {
+      const card = main.querySelector('.sc-card[data-id="' + it.id + '"]');
+      if (!card) return;
+      const b = card.querySelector('.sc-likes b'), at = card.querySelector('.sc-at');
+      if (it.likes === null || it.likes === undefined) { card.classList.add('pending'); b.textContent = '…'; b.dataset.value = ''; at.textContent = 'registrando…'; return; }
+      card.classList.remove('pending');
+      at.textContent = 'registrado ' + it.at;
+      if (String(b.dataset.value) !== String(it.likes)) {
+        if (first) { b.dataset.value = it.likes; b.textContent = intFmt(it.likes); return; }
+        countTo(b, it.likes); card.classList.remove('bump'); void card.offsetWidth; card.classList.add('bump');
+      }
+    });
+    first = false;
+  };
+  socialUpdater(state);
+}
+
 // ------------------------------------------------------------------ modo: votación
 function renderVotes(state) {
+  if (state.socialClose) return renderSocialClose(state);
   main.innerHTML = rosterHtml(state, { pie: 'La votación por Facebook está abierta hasta las ' + hhmm(state.votingEnd) + '. El conteo se revela en la ceremonia final.' });
   fitAll();
   initShowcase();
@@ -630,6 +698,7 @@ function render(state) {
     round: state.round,
     next: state.nextRoundAt || null,
     cut: state.votingEnd || null,
+    socialClose: !!state.socialClose,
     live: state.live?.id || null,
     cands: list(state.candidates).map(c => [c.id, c.name, c.program, c.photo, c.facebook]),
     results: state.results || null,
@@ -638,6 +707,7 @@ function render(state) {
 
   if (key === renderedKey) {
     if (liveUpdater) liveUpdater(state.live);
+    if (socialUpdater) socialUpdater(state);
     return;
   }
 
@@ -651,3 +721,6 @@ onValue(ref(db, '.info/connected'), snap => { conn.hidden = !!snap.val(); });
 onValue(ref(db, 'publico'), snap => render(snap.val()), err => {
   main.innerHTML = `<div class="empty-state"><p>No se pudo conectar con la transmisión.</p><p class="small">${esc(err.message)}</p></div>`;
 });
+
+// Solo para pruebas: dibujar un estado simulado en esta pantalla (no escribe nada).
+window.__reinadoRender = render;

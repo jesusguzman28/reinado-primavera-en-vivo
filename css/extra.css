@@ -46,3 +46,19 @@
 
 /* En la pizarra no se toca nada: sin botones de redes en las tarjetas. */
 .candidata .redes{display:none}
+
+  /* Cierre de la votación por Facebook (20:45 → 21:00) */
+  .social-close .sc-likes{display:flex; align-items:center; justify-content:center; gap:3cqi; margin-bottom:2cqi}
+  .social-close .sc-likes .thumb{font-size:clamp(18px,11cqi,48px)}
+  .social-close .sc-likes b{font-family:var(--font-display); font-weight:800; font-size:clamp(30px,19cqi,86px); line-height:1;
+    color:var(--gold-2); text-shadow:0 4px 24px rgba(0,0,0,.7), 0 0 30px rgba(232,195,120,.35); font-variant-numeric:tabular-nums}
+  .social-close .sc-at{font-size:clamp(8px,3.8cqi,13px); letter-spacing:.12em; text-transform:uppercase; color:var(--mint); margin-bottom:3cqi}
+  .social-close .candidata::after{background:linear-gradient(180deg, transparent 25%, rgba(20,12,26,.6) 50%, rgba(20,12,26,.97) 100%)}
+  .social-close .sc-card.pending .sc-likes b{color:var(--muted)}
+  .social-close .sc-card.pending .sc-at{color:var(--muted); animation:blink 1.4s steps(1) infinite}
+  /* Al llegar una cifra salta solo el número: la tarjeta conserva su animación de entrada. */
+  .social-close .sc-card.bump .sc-likes{animation:scBump .9s cubic-bezier(.2,1.2,.3,1)}
+  .social-close .sc-card.bump{border-color:var(--gold); transition:border-color .6s}
+  @keyframes scBump{40%{transform:scale(1.25)}}
+  .social-close .vote-band{margin-bottom:.4vh}
+
