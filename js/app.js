@@ -33,6 +33,8 @@ let renderedKey = null;        // qué está dibujado (para no redibujar sin mot
 let cleanups = [];             // timers y listeners del modo actual
 let liveUpdater = null;        // actualiza la lista de sobres sin redibujar
 let revealPlayed = false;      // la cortina de la ganadora corre una sola vez
+let lastState = null;          // último /publico recibido
+const votingClosed = st => !!st.votingEnd && (Date.now() + serverOffset) >= st.votingEnd;
 
 // ------------------------------------------------------------------ util
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -108,12 +110,17 @@ function rosterHtml(state, { compact = false, liveId = null, title = 'Candidatas
       </article>`;
   }).join('');
 
-  const tickerItems = [
+  const closed = votingClosed(state);
+  const tickerItems = (closed ? [
+    '🔒 La votación por Facebook cerró a las ' + hhmm(state.votingEnd),
+    '💌 Primer llamado de sobres' + (state.firstRoundAt ? ' a las ' + hhmm(state.firstRoundAt) : ''),
+    '👑 Los resultados se revelan en la ceremonia final',
+  ] : [
     '💖 Cada “Me gusta” en Facebook cuenta como un voto',
     '🌸 ' + (pie || 'Los resultados se revelan en la ceremonia final.'),
     '📲 Reacciona en sus publicaciones de Facebook' + (fbShort ? ': ' + fbShort : ''),
     '👑 Los resultados se revelan en la ceremonia final',
-  ].map(t => `<span>${esc(t)}</span>`).join('');
+  ]).map(t => `<span>${esc(t)}</span>`).join('');
 
   return `
     <section class="roster ${compact ? 'strip' : 'showcase'}">
@@ -121,9 +128,21 @@ function rosterHtml(state, { compact = false, liveId = null, title = 'Candidatas
       <div class="roster-head">
         <h2 class="display section-title">${esc(title)}</h2>
         <span class="tag">🤫 Resultados en reserva</span>
-        ${compact || !state.votingEnd ? '' : `<span class="vote-clock" id="vote-clock">🗳️ La votación por Facebook cierra a las ${esc(hhmm(state.votingEnd))} · faltan <b class="num" id="vote-left">--:--</b></span>`}
-        ${compact ? '' : '<span class="now-pill" id="now-pill" hidden>💖 ¡Dale tu “Me gusta” a <b id="now-name"></b>!</span>'}
+        ${compact || closed ? '' : '<span class="now-pill" id="now-pill" hidden>💖 ¡Dale tu “Me gusta” a <b id="now-name"></b>!</span>'}
       </div>
+      ${compact || !state.votingEnd ? '' : `
+        <div class="vote-band" id="vote-band">
+          <div class="vb-label">
+            <div class="eyebrow" id="vb-kicker">Votación por Facebook abierta</div>
+            <div class="vb-title" id="vb-title">Cierra a las <b>${esc(hhmm(state.votingEnd))}</b></div>
+          </div>
+          <div class="vb-clock">
+            <div class="seg"><b id="vb-h">--</b><span>horas</span></div><i>:</i>
+            <div class="seg"><b id="vb-m">--</b><span>minutos</span></div><i>:</i>
+            <div class="seg"><b id="vb-s">--</b><span>segundos</span></div>
+          </div>
+          <div class="vb-hint" id="vb-hint">Cada “Me gusta” en su publicación de Facebook cuenta como un voto</div>
+        </div>`}
       ${cands.length
         ? `<div class="candidatas fit" data-ratio="0.75">${cards}</div>`
         : '<div class="card pad muted" style="text-align:center; padding:48px">Aún no hay candidatas registradas.</div>'}
@@ -224,21 +243,41 @@ function initShowcase() {
   }
 }
 
-// Cuenta regresiva al corte de la votación por Facebook.
+// Reloj grande: al corte de Facebook y, después, al 1.er llamado.
 function initVoteClock(state) {
-  const box = document.getElementById('vote-clock');
-  if (!box) return;
+  const band = document.getElementById('vote-band');
+  if (!band) return;
+  const $ = id => document.getElementById(id);
   const pad = n => String(n).padStart(2, '0');
-  const closed = () => {
-    box.classList.add('closed');
-    box.textContent = '🔒 Votación por Facebook cerrada a las ' + hhmm(state.votingEnd)
-      + (state.firstRoundAt ? ' · 1.er llamado a las ' + hhmm(state.firstRoundAt) : '');
-  };
+  const cut = state.votingEnd, first = state.firstRoundAt || 0;
+  const openAtRender = (Date.now() + serverOffset) < cut;
   const tick = () => {
-    const ms = state.votingEnd - (Date.now() + serverOffset);
-    if (ms <= 0) { closed(); return true; }
-    const h = Math.floor(ms / 3600000), m = Math.floor(ms / 60000) % 60, s = Math.floor(ms / 1000) % 60;
-    document.getElementById('vote-left').textContent = (h ? h + ':' + pad(m) : pad(m)) + ':' + pad(s);
+    const now = Date.now() + serverOffset;
+    // Al cruzar el corte, redibuja para que todos los textos digan "cerrada".
+    if (openAtRender && now >= cut) { renderedKey = null; render(lastState); return true; }
+    let target, kicker, title, hint;
+    if (now < cut) {
+      target = cut; kicker = 'Votación por Facebook abierta';
+      title = 'Cierra a las <b>' + esc(hhmm(cut)) + '</b>';
+      hint = 'Cada “Me gusta” en su publicación de Facebook cuenta como un voto';
+    } else if (first && now < first) {
+      target = first; kicker = '🔒 Votación por Facebook cerrada';
+      title = '1.er llamado a las <b>' + esc(hhmm(first)) + '</b>';
+      hint = 'Preparen sus sobres: el conteo empieza en';
+    } else {
+      band.className = 'vote-band closed done';
+      $('vb-kicker').textContent = '🔒 Votación por Facebook cerrada';
+      $('vb-title').innerHTML = 'El conteo de sobres <b>empieza en instantes</b>';
+      $('vb-hint').textContent = 'Los resultados se revelan en la ceremonia final';
+      return true;
+    }
+    const ms = Math.max(0, target - now);
+    band.classList.toggle('closed', target !== cut);
+    band.classList.toggle('urgent', ms < 10 * 60 * 1000);
+    $('vb-kicker').textContent = kicker; $('vb-title').innerHTML = title; $('vb-hint').textContent = hint;
+    $('vb-h').textContent = pad(Math.floor(ms / 3600000));
+    $('vb-m').textContent = pad(Math.floor(ms / 60000) % 60);
+    $('vb-s').textContent = pad(Math.floor(ms / 1000) % 60);
     return false;
   };
   if (!tick()) { const t = every(() => { if (tick()) clearInterval(t); }, 1000); }
@@ -246,7 +285,7 @@ function initVoteClock(state) {
 
 // ------------------------------------------------------------------ modo: votación
 function renderVotes(state) {
-  main.innerHTML = rosterHtml(state, { pie: 'La votación por Facebook está abierta. El conteo se revela en la ceremonia final.' });
+  main.innerHTML = rosterHtml(state, { pie: 'La votación por Facebook está abierta hasta las ' + hhmm(state.votingEnd) + '. El conteo se revela en la ceremonia final.' });
   fitAll();
   initShowcase();
   initVoteClock(state);
@@ -561,7 +600,7 @@ function renderWinner(state) {
 // ------------------------------------------------------------------ chip del modo
 function setChip(state) {
   const texts = {
-    votes: 'Votación por Facebook en curso',
+    votes: votingClosed(state) ? 'Votación por Facebook cerrada' : 'Votación por Facebook en curso',
     envelopes: 'Conteo de sobres · ' + roundLabel(Number(state.round || 1)),
     grace: 'Intermedio',
     winner: '¡Tenemos reina!',
@@ -573,6 +612,7 @@ function setChip(state) {
 
 // ------------------------------------------------------------------ Firebase
 function render(state) {
+  lastState = state;
   if (!state || !state.mode) {
     resetMode();
     renderedKey = null;
