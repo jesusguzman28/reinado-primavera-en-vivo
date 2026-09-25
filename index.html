@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#140c1a">
+  <title>Reinado de Primavera 2026 · En vivo</title>
+  <meta name="description" content="Sigue en vivo el Reinado de Primavera 2026 del Instituto Paucar del Sarasara: candidatas, conteo de sobres y la coronación.">
+  <meta property="og:title" content="Reinado de Primavera 2026 · En vivo">
+  <meta property="og:description" content="Candidatas, conteo de sobres y coronación en tiempo real.">
+  <meta property="og:image" content="img/candidatas/analhy-santillan.jpg">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,500;1,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/extra.css">
+</head>
+<body>
+  <!-- Sin servidor: todo lo arma js/app.js con lo que llega de Firebase (/publico). -->
+
+  <div class="ambient" id="ambient" aria-hidden="true"></div>
+
+  <div class="page" id="page">
+    <header class="masthead">
+      <div class="crest">👑</div>
+      <div>
+        <h1 class="display brand-title">Reinado de <span class="script gold-text">Primavera</span></h1>
+        <div class="brand-sub">Elección de la reina · 2026</div>
+      </div>
+      <span class="chip" id="mode-chip"><span class="dot"></span> <span id="mode-text">Conectando…</span></span>
+    </header>
+
+    <main class="main" id="main">
+      <div class="loading">
+        <div class="crown">👑</div>
+        <p>Conectando con la transmisión en vivo…</p>
+      </div>
+    </main>
+  </div>
+
+  <div class="conn" id="conn" hidden>● Reconectando…</div>
+  <div class="reactions" id="reactions" aria-hidden="true"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

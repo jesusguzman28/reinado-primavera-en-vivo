@@ -1,0 +1,12 @@
+/* Solo de la versión web: carga, estado de conexión y ajustes menores. */
+.loading{flex:1; display:grid; place-content:center; text-align:center; color:var(--muted); gap:1vh}
+.loading .crown{font-size:clamp(40px,10vh,90px); animation:float 3s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-10px)}}
+
+.conn{position:fixed; left:50%; bottom:14px; transform:translateX(-50%); z-index:60; padding:8px 16px; border-radius:999px;
+  background:rgba(20,12,26,.85); border:1px solid rgba(255,124,140,.45); color:#ffc3cb; font-size:13px; backdrop-filter:blur(6px)}
+
+.empty-state{flex:1; display:grid; place-content:center; text-align:center; color:var(--muted)}
+
+/* La web no tiene ruta de imagen del servidor: la foto de reemplazo es local. */
+.candidata img, .ring .slot img{background:var(--surface-3)}
